@@ -1,17 +1,83 @@
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import fatherhoodRoutes from './routes/fatherhood.js'
+import authRoutes from './routes/auth.js'
 
 const app = express()
 
-app.get('/', (_req, res) => {
-  res.send('Hello Express!')
+// Security middleware
+app.use(helmet())
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.ALLOWED_ORIGINS?.split(',') || ['https://your-production-domain.com'])
+    : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}))
+
+// Body parsing
+app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+
+// Routes
+// Public authentication routes
+app.use('/api/auth', authRoutes)
+
+// Fatherhood routes
+app.use('/api/fatherhood', fatherhoodRoutes)
+
+// Health check endpoint
+app.get('/health', (_req: Request, res: Response) => {
+  res.json({ 
+    status: 'OK', 
+    service: 'Fatherhood Initiative API',
+    timestamp: new Date().toISOString() 
+  })
 })
 
-app.get('/api/users/:id', (_req, res) => {
-  res.json({ id: _req.params.id })
+// API health check
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ 
+    status: 'OK', 
+    service: 'Fatherhood Initiative API',
+    timestamp: new Date().toISOString() 
+  })
 })
 
-app.get('/api/posts/:postId/comments/:commentId', (_req, res) => {
-  res.json({ postId: _req.params.postId, commentId: _req.params.commentId })
+// Root endpoint
+app.get('/', (_req: Request, res: Response) => {
+  res.json({ 
+    message: 'Man Up! Inc. Fatherhood Initiative API',
+    version: '1.0.0',
+    endpoints: {
+      health: 'GET /health',
+      signup: 'POST /api/fatherhood/signup',
+      signups: 'GET /api/fatherhood/signups',
+      auth: {
+        login: 'POST /api/auth/login',
+        verify: 'GET /api/auth/verify',
+        logout: 'POST /api/auth/logout'
+      }
+    }
+  })
+})
+
+// 404 handler
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Route not found' })
+})
+
+// Error handler
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Error:', err.stack)
+  res.status(500).json({ 
+    error: 'Something went wrong!',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  })
 })
 
 export default app
