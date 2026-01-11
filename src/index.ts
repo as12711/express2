@@ -11,26 +11,38 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? (process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || ['https://as12711.github.io'])
   : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*']
 
-console.log('CORS Configuration:', {
-  environment: process.env.NODE_ENV,
-  allowedOrigins,
-  credentials: true
-})
+const isDevelopment = process.env.NODE_ENV === 'development'
+const isDebugMode = process.env.CORS_DEBUG === 'true' || isDevelopment
+
+// Log CORS configuration on startup (useful for debugging production issues)
+if (isDebugMode) {
+  console.log('CORS Configuration:', {
+    environment: process.env.NODE_ENV,
+    allowedOrigins,
+    credentials: true
+  })
+}
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps, Postman, or same-origin)
     if (!origin) {
-      console.log('CORS: Allowing request with no origin header')
+      if (isDebugMode) {
+        console.log('CORS: Allowing request with no origin header')
+      }
       return callback(null, true)
     }
     
     // Check if origin is in allowed list
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      console.log(`CORS: Allowing origin: ${origin}`)
+      if (isDebugMode) {
+        console.log(`CORS: Allowing origin: ${origin}`)
+      }
       callback(null, true)
     } else {
-      console.log(`CORS: Blocking origin: ${origin}`)
+      if (isDebugMode) {
+        console.log(`CORS: Blocking origin: ${origin}`)
+      }
       callback(new Error('Not allowed by CORS'))
     }
   },
