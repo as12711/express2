@@ -18,7 +18,7 @@ app.use(helmet({
   }
 }))
 
-// CORS configuration - comes AFTER helmet to ensure CORS headers override any helmet settings
+// CORS configuration - comes after helmet to ensure CORS headers are properly applied
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? (process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || ['https://as12711.github.io'])
   : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*']
@@ -63,8 +63,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-// Explicit middleware to ensure Access-Control-Allow-Origin is set on all responses
-// This works in conjunction with the cors middleware above to guarantee the header is present
+// Safety middleware to guarantee Access-Control-Allow-Origin is set on all responses
+// This acts as a fallback to ensure the header is present even if helmet or other middleware interferes
+// The validation logic intentionally mirrors the cors package above for consistency
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin
   if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
