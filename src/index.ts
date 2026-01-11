@@ -6,7 +6,14 @@ import authRoutes from './routes/auth.js'
 
 const app = express()
 
-// CORS configuration - MUST come before helmet() to ensure headers are set correctly
+// Configure helmet FIRST with proper CORS-friendly settings
+// This ensures helmet doesn't interfere with CORS headers
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Disable CORP to allow CORS
+  contentSecurityPolicy: false // Disable CSP that might interfere with CORS
+}))
+
+// CORS configuration - comes AFTER helmet to ensure CORS headers override any helmet settings
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? (process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || ['https://as12711.github.io'])
   : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*']
@@ -51,8 +58,26 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-// Security middleware - comes AFTER CORS to avoid interfering with CORS headers
-app.use(helmet())
+// Explicit middleware to ensure Access-Control-Allow-Origin is set on all responses
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin
+  if (origin) {
+    // Check if origin is allowed
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin)
+      res.setHeader('Access-Control-Allow-Credentials', 'true')
+      
+      // Handle preflight requests explicitly
+      if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        res.setHeader('Access-Control-Max-Age', '86400') // 24 hours
+        return res.status(204).end()
+      }
+    }
+  }
+  next()
+})
 
 // Body parsing
 app.use(express.json())
