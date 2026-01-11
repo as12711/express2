@@ -11,6 +11,13 @@
 # deps
 node_modules/
 
+# build
+dist/
+src/**/*.js
+src/**/*.d.ts
+!src/**/*.test.js
+!src/**/*.spec.js
+
 # env
 .env
 .env.production
