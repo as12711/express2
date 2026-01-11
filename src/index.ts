@@ -9,8 +9,13 @@ const app = express()
 // Configure helmet FIRST with proper CORS-friendly settings
 // This ensures helmet doesn't interfere with CORS headers
 app.use(helmet({
-  crossOriginResourcePolicy: false, // Disable CORP to allow CORS
-  contentSecurityPolicy: false // Disable CSP that might interfere with CORS
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow CORS
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "https://as12711.github.io"]
+    }
+  }
 }))
 
 // CORS configuration - comes AFTER helmet to ensure CORS headers override any helmet settings
@@ -59,22 +64,13 @@ app.use(cors({
 }))
 
 // Explicit middleware to ensure Access-Control-Allow-Origin is set on all responses
+// This works in conjunction with the cors middleware above to guarantee the header is present
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin
-  if (origin) {
-    // Check if origin is allowed
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin)
-      res.setHeader('Access-Control-Allow-Credentials', 'true')
-      
-      // Handle preflight requests explicitly
-      if (req.method === 'OPTIONS') {
-        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS')
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        res.setHeader('Access-Control-Max-Age', '86400') // 24 hours
-        return res.status(204).end()
-      }
-    }
+  if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
+    // Ensure the header is set even if helmet or other middleware interferes
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
   }
   next()
 })
