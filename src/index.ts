@@ -6,18 +6,53 @@ import authRoutes from './routes/auth.js'
 
 const app = express()
 
-// Security middleware
-app.use(helmet())
+// CORS configuration - MUST come before helmet() to ensure headers are set correctly
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? (process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || ['https://as12711.github.io'])
+  : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*']
 
-// CORS configuration
+const isDevelopment = process.env.NODE_ENV === 'development'
+const isDebugMode = process.env.CORS_DEBUG === 'true' || isDevelopment
+
+// Log CORS configuration on startup (useful for debugging production issues)
+if (isDebugMode) {
+  console.log('CORS Configuration:', {
+    environment: process.env.NODE_ENV,
+    allowedOrigins,
+    credentials: true
+  })
+}
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGINS?.split(',') || ['https://as12711.github.io'])
-    : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+    if (!origin) {
+      if (isDebugMode) {
+        console.log('CORS: Allowing request with no origin header')
+      }
+      return callback(null, true)
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      if (isDebugMode) {
+        console.log(`CORS: Allowing origin: ${origin}`)
+      }
+      callback(null, true)
+    } else {
+      if (isDebugMode) {
+        console.log(`CORS: Blocking origin: ${origin}`)
+      }
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
+
+// Security middleware - comes AFTER CORS to avoid interfering with CORS headers
+app.use(helmet())
 
 // Body parsing
 app.use(express.json())
