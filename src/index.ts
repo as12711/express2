@@ -6,7 +6,19 @@ import authRoutes from './routes/auth.js'
 
 const app = express()
 
-// CORS configuration - MUST come before helmet() to ensure headers are set correctly
+// Configure helmet FIRST with proper CORS-friendly settings
+// This ensures helmet doesn't interfere with CORS headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow CORS
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "https://as12711.github.io"]
+    }
+  }
+}))
+
+// CORS configuration - comes after helmet to ensure CORS headers are properly applied
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? (process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || ['https://as12711.github.io'])
   : ['http://localhost:3000', 'http://localhost:19006', 'http://localhost:8081', 'http://127.0.0.1:5500', 'http://localhost:5500', '*']
@@ -51,8 +63,18 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
-// Security middleware - comes AFTER CORS to avoid interfering with CORS headers
-app.use(helmet())
+// Safety middleware to guarantee Access-Control-Allow-Origin is set on all responses
+// This acts as a fallback to ensure the header is present even if helmet or other middleware interferes
+// The validation logic intentionally mirrors the cors package above for consistency
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const origin = req.headers.origin
+  if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
+    // Ensure the header is set even if helmet or other middleware interferes
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+  }
+  next()
+})
 
 // Body parsing
 app.use(express.json())
